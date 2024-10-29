@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import re
+import time
 import serial
 import threading
 import db_handler
@@ -32,7 +33,7 @@ TELEMETRY_RE = re.compile(r"([0-9]*)\s([0-9]*)\s([0-9]*)\s([0-9]*:[0-9]*:[0-9]*.
                           r"0-9]*)\s*(-?[0-9]*)\s*vel\s*(-?[0-9]*)\s*AGL\s*(-?[0-9]*)")
 
 
-def get_telemetry(db: connection, device: int) -> dict:
+def get_telemetry(db: connection, device: int) -> list:
     """
     Grabs telemetry logged in database by a specific device, parses it, and returns a dictionary
     :return:
@@ -51,17 +52,30 @@ def get_telemetry(db: connection, device: int) -> dict:
     # assign telemetry data.
     # this is ordered in the way it shows up on the live video
     telemetry = {
-        "Vert. Velocity": f"{data[18]} f/s",
-        "Acceleration": f"{data[7]} {data[8]} {data[9]}",
-        "Altitude": f"{data[19]} feet",
-        "Tilt": f"{int(data[16]) / 10:.1f} deg.",
-        "Roll": f"{int(data[17]) / 10:.1f} deg.",
-        "spacer1": "",  # this is a spacer element to separate the utility info from other telemetry
-        "Timestamp": data[3],
-        "Battery": f"{int(data[12]) / 1000:.2f} V",
-        "Temp": f"{int(data[11]) / 100:.2f} F"
-
+        "Ctrl": device,
+        "Acc": f"{data[7]} {data[8]} {data[9]}",
+        "Vel": f"{data[18]}",
+        "Alt": f"{data[19]}",
+        "Tilt": f"{int(data[16]) / 10:.1f}",
+        "Roll": f"{int(data[17]) / 10:.1f}",
+        "Time": f"{data[3]}",
+        "Batt": f"{int(data[12]) / 1000:.2f}",
+        "Temp": f"{int(data[11]) / 100:.2f}",
     }
+
+    telemetry = [
+        int(device),
+        int(data[7]),
+        int(data[8]),
+        int(data[9]),
+        int(data[18]),
+        int(data[19]),
+        int(data[16]),
+        int(data[17]),
+        data[3],
+        int(data[12]),
+        int(data[11])
+    ]
 
     return telemetry
 
@@ -100,7 +114,46 @@ def start_raven_streams(db: connection, ports: list[str]) -> list[int]:
     return device_ids
 
 
-def telemetry_reader(port: str, device: int):
+def simulate_raven_streams(db: connection, count: int, simulation_files: list[str]) -> list[int]:
+    """
+    Starts a simulation of a Blue Raven Flight Controller using the information located in ./simulations/
+    :param db: Database connection
+    :param count: Number of simulated flight controllers to start
+    :param simulation_files: List of files to use for simulation
+    :return: A list of "ids" that correlate to the simulated ravens
+    """
+    threads = []
+    device_ids = []
+
+    # loop through all given ports for the raven streams
+    for i in range(1, count + 1):
+        simulator = f"SIMULATOR-{i}"
+
+        # attempt to get the device ID
+        device = db_handler.get_device(db, simulator)
+
+        # check if device was found
+        if device is None:
+            # no device found, create a new one
+            device = db_handler.add_device(db, simulator)
+
+        # grab device IDs
+        device_ids.append(device)
+
+        # create new thread and append it to thread list
+        threads.append(threading.Thread(target=telemetry_simulator,
+                                        args=[simulation_files[i % len(simulation_files)], device])
+                       )
+
+    # start threads
+    for thread in threads:
+        thread.start()
+
+    # return collected device IDs
+    return device_ids
+
+
+def telemetry_reader(port: str, device: int) -> None:
     """
     Telemetry reader made to run in a separate thread
     :param port: Port where serial stream is located
@@ -127,7 +180,7 @@ def telemetry_reader(port: str, device: int):
     # open connection
     conn.open()
 
-    # mark port as active in database
+    # mark device as active in database
     db_handler.set_device_status(db, device, True)
 
     while True:
@@ -136,3 +189,45 @@ def telemetry_reader(port: str, device: int):
 
         # add data to database
         db_handler.add_data(db, device, data)
+
+
+def telemetry_simulator(sim_file: str, device: int) -> None:
+    """
+    Telemetry simulator made to run in a seperated thread
+    :param sim_file: Data file that contains the simulated data
+    :param device: id of the device being read
+    :return:
+    """
+    # create database connection
+    db = db_handler.establish_db()
+
+    # mark device as active in database
+    db_handler.set_device_status(db, device, True)
+
+    # create an infinite loop of opening, reading, and reopening
+    while True:
+        # open and real file as bytes
+        with open(sim_file, "rb") as file:
+            # loop until data is None
+            while True:
+                # read in line from file
+                data = file.readline()
+
+                if not data:
+                    # close when file has ended
+                    file.close()
+                    break
+
+                # ensure this is ONLY telemetry data (since event data is unused right now)
+                if b"@ BLR_STAT" not in data:
+                    # retrieve next line
+                    continue
+
+                # clean data of newlines/carriage returns
+                data = data.replace(b"\n", b"").replace(b"\r", b"")
+
+                # add data to database
+                db_handler.add_data(db, device, data)
+
+                # wait to simulate blue raven write speeds, which is about 0.22 seconds
+                time.sleep(0.22)
