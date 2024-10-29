@@ -2,3 +2,4 @@ opencv-python
 psycopg2
 numpy
 pyserial
+qrcode[pil]

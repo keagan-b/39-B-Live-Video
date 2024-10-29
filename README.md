@@ -1,5 +1,5 @@
 # BALLS Live Video
-This program was developed for the SEDS-UCF 39-B 2 stage rocket. It interfaces with 2 Blue Raven flight controllers, a Runcam Split 4 v2, and a video transmitter to attempt to establish live video and telemetry.
+This program was developed for the SEDS-UCF 39-B 2 stage rocket. It interfaces with 2 Blue Raven flight controllers, a Runcam Split 4 v2, and a video transmitter to attempt to establish live video and telemetry at high altitudes.
 
 ----
 
@@ -72,3 +72,26 @@ Once the database has been created and the requirements installed, create a file
   "DATABASE_PASSWORD"
 ]
 ```
+----
+## QR Encoders
+This project has 4 "QR Encoders", accessible in the `overlay_utils.py` file. These encoders allow the placement of QR codes in specialized patterns onto live video feed. In this instance, they are used to ensure that telemetry data is transferred properly and with a 30% error recovery. Each of the encoder examples below are generated on a 640x480 resolution, with a QR Pixel Scale of 4.
+
+### QR "Border"
+![border encoder](./qr_examples/border.png)
+
+This encoder places a QR code clockwise around the frame, creating a "border" from the data. In terms of radio transmission, this method is theoretically resilient to data corruption on the start and end of frames, due to how spread out the information is.
+
+### QR "Bars"
+![bar encoder](./qr_examples/bars.png)
+
+The bar encoder creates two mirrored "bars" on the left and right sides of a frame. Each of these bars is a copy of the QR code, meaning that two copies are transmitted at once.
+
+### QR "Quadrants"
+![quadrant encoder](./qr_examples/quadrants.png)
+
+The quadrant encoder splits the QR code into 4 quadrants (top left, top right, bottom left, bottom right) and places them in their respective corners of the resulting frame.
+
+### QR "Overlay"
+![overlay encoder](./qr_examples/overlay.png)
+
+The overlay encoder is the simplest of the 4, placing the full QR code at a specified location on the frame. 
