@@ -1,0 +1,17 @@
+{
+    "QR_MODE": "border",
+    "QR_PIXEL_SCALE": 2,
+    "QR_FRAMES_PER_CONTROLLER": 2,
+    "QR_BUFFER_SIZE": 10,
+    "QR_OVERLAY_X": 0,
+    "QR_OVERLAY_Y": 0,
+    "WIDTH": 720,
+    "HEIGHT": 576,
+    "BLUE_RAVEN_PORTS": [
+        "COM4",
+        "COM5"
+    ],
+    "SIMULATE": true,
+    "OUTPUT_CODEC": "XVID",
+    "OUTPUT_EXTENSION": ".avi"
+}

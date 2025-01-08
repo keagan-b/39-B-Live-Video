@@ -47,34 +47,21 @@ def get_telemetry(db: connection, device: int) -> list:
         data = TELEMETRY_RE.findall(data)[0]
     except IndexError:
         # data not found, return empty telemetry
-        return {"ERROR": "NO MATCHING DATA FOUND"}
+        return [int(device)]
 
     # assign telemetry data.
-    # this is ordered in the way it shows up on the live video
-    telemetry = {
-        "Ctrl": device,
-        "Acc": f"{data[7]} {data[8]} {data[9]}",
-        "Vel": f"{data[18]}",
-        "Alt": f"{data[19]}",
-        "Tilt": f"{int(data[16]) / 10:.1f}",
-        "Roll": f"{int(data[17]) / 10:.1f}",
-        "Time": f"{data[3]}",
-        "Batt": f"{int(data[12]) / 1000:.2f}",
-        "Temp": f"{int(data[11]) / 100:.2f}",
-    }
-
     telemetry = [
-        int(device),
-        int(data[7]),
-        int(data[8]),
-        int(data[9]),
-        int(data[18]),
-        int(data[19]),
-        int(data[16]),
-        int(data[17]),
-        data[3],
-        int(data[12]),
-        int(data[11])
+        int(device),    # 0 - device ID
+        int(data[7]),   # 1 - Acceleration X
+        int(data[8]),   # 2 - Acceleration Y
+        int(data[9]),   # 3 - Acceleration Z
+        int(data[18]),  # 4 - Velocity
+        int(data[19]),  # 5 - Altitude
+        int(data[16]),  # 6 - Tilt
+        int(data[17]),  # 7 - Roll
+        data[3],        # 8 - Time
+        int(data[12]),  # 9 - Battery
+        int(data[11])   # 10 - Temperature
     ]
 
     return telemetry

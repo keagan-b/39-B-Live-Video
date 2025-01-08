@@ -1,5 +1,5 @@
 # BALLS Live Video
-This program was developed for the SEDS-UCF 39-B 2 stage rocket. It interfaces with 2 Blue Raven flight controllers, a Runcam Split 4 v2, and a video transmitter to attempt to establish live video and telemetry at high altitudes.
+This program was developed for the SEDS-UCF 39-B 2 stage rocket. This code runs the transmission system for live video streaming from the lower stage ("Daedalus"). It interfaces with 2 Blue Raven flight controllers, an RPi camera module, a webcam, and a video transmitter to attempt to establish live video and telemetry at high altitudes.
 
 ----
 
@@ -25,7 +25,7 @@ If you don't know your username, run `whoami` in the terminal and use the result
 
 Now, navigate to `/etc/postgresql/[VERSION NUMBER]/main/pg_hba.conf`. There should already be a line in here that says `local all postgres peer`. If there is not, add it. Additionally, add `map=user1` to the end of the configuration line. It should look something like this: `ocal all postgres peer map=user1`.
 
-Now attempt to launch run the `psql`  command. If no errors occur, skip to the *Creating the Database* section. Otherwise, try the following work around:
+Now attempt to run the `psql`  command. If no errors occur, skip to the *Creating the Database* section. Otherwise, try the following workaround:
 
 In the terminal, run the following two commands to create a new superuser account for postgres:
 ```commandline
@@ -35,8 +35,13 @@ sudo -u postgres psql -c "ALTER ROLE [YOUR USERNAME] WITH PASSWORD '[YOUR PASSWO
 
 Now attempt to use the `psql` command again. If you still get an error, run the `createdb` command and try again.
 
-#### Identifying Serial Ports
-Identifying serial ports on Linux is a little harder than it is on Windows. Your best bet is to run `dmesg | grep tty` in the console. If your USB device is recognized, you should see a message alon the lines of `cdc_acm 1-1.3:1.0: ttyACM#: USB ACM device`. The full name of your port will be `/dev/ttyACM#`.
+### Installing `pyzbar`
+In order to use the `pyzbar` library on Linux, you need to install `libzbar0` with your package manager. For example: `sudo apt-get install libzbar0`.
+
+---
+
+## Identifying Serial Ports
+In order to use the Blue Raven flight controllers, their serial port must be identified and configured in `/src/main.py`. Doing so on Linux is a little harder than it is on Windows. On Linux, the best bet is to run `dmesg | grep tty` in the console. If your USB device is recognized, you should see a message alon the lines of `cdc_acm 1-1.3:1.0: ttyACM#: USB ACM device`. The full name of your port will be `/dev/ttyACM#`.
 
 ---
 
@@ -72,9 +77,11 @@ Once the database has been created and the requirements installed, create a file
   "DATABASE_PASSWORD"
 ]
 ```
+By default, the postgres database port is `5432`. 
+
 ----
 ## QR Encoders
-This project has 4 "QR Encoders", accessible in the `overlay_utils.py` file. These encoders allow the placement of QR codes in specialized patterns onto live video feed. In this instance, they are used to ensure that telemetry data is transferred properly and with a 30% error recovery. Each of the encoder examples below are generated on a 640x480 resolution, with a QR Pixel Scale of 4.
+This project has 4 "QR Encoders", accessible in the `overlay_utils.py` file. These encoders allow the placement of encoded telemetry data in specialized patterns onto live video feed. In this instance, they are used to ensure that telemetry data is transferred properly and with a 30% error recovery. Each of the encoder examples below are generated on a 640x480 resolution, with a QR Pixel Scale of 4.
 
 ### QR "Border"
 ![border encoder](./qr_examples/border.png)

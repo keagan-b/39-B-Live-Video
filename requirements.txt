@@ -3,3 +3,4 @@ psycopg2
 numpy
 pyserial
 qrcode[pil]
+pyzbar

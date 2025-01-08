@@ -6,8 +6,34 @@ from __future__ import annotations
 
 import math
 import copy
+import models
 import numpy as np
 from typing import Literal
+
+
+def handle_overlay_request(config: models.Config, mode: Literal["read", "write"], frame: np.ndarray, qr: np.ndarray):
+    """
+    :param config: a config object containing relevant QR information
+    :param mode: specify read/write mode
+    :param frame: frame to overlay / read from
+    :param qr: QR code to overlay / write to
+    :return: Read mode - compiled QR;  Write mode - overlayed frame; None if unknown QR type
+    """
+    # ensure mode is valid
+    if mode not in ["read", "write"]:
+        raise AttributeError(f"Invalid mode '{mode}'.")
+
+    # handle each type of QR overlay
+    if config.QR_MODE == 'border':
+        return handle_qr_border(mode, frame, qr, config.QR_PIXEL_SCALE, config.QR_BUFFER_SIZE)
+    elif config.QR_MODE == 'bars':
+        return handle_qr_bars(mode, frame, qr, config.QR_PIXEL_SCALE, config.QR_BUFFER_SIZE)
+    elif config.QR_MODE == 'quadrants':
+        return handle_qr_quadrants(mode, frame, qr, config.QR_BUFFER_SIZE)
+    elif config.QR_MODE == 'overlay':
+        return handle_qr_overlay(mode, frame, qr, config.QR_OVERLAY_X, config.QR_OVERLAY_Y)
+    else:
+        raise f"Unknown QR overlay mode '{config.QR_MODE}'."
 
 
 def handle_qr_border(mode: Literal["read", "write"], frame: np.ndarray, qr: np.ndarray, pixel_scale: int,
@@ -21,10 +47,6 @@ def handle_qr_border(mode: Literal["read", "write"], frame: np.ndarray, qr: np.n
     :param buffer_size: number of pixels that the QR code is padded with
     :return: a np.ndarray with the updated frame or QR code
     """
-    # ensure mode is valid
-    if mode not in ["read", "write"]:
-        raise AttributeError(f"Invalid mode '{mode}'.")
-
     # set cycles
     completed_cycles = 0
 
@@ -104,10 +126,6 @@ def handle_qr_bars(mode: Literal["read", "write"], frame: np.ndarray, qr: np.nda
     :param buffer_size: size of buffer to pad the QR code with
     :return: The frame with the applied QR code, or the read QR codes from both sides
     """
-    # ensure mode is valid
-    if mode not in ["read", "write"]:
-        raise AttributeError(f"Invalid mode '{mode}'.")
-
     qr_left = None
     qr_right = None
 
@@ -182,10 +200,6 @@ def handle_qr_quadrants(mode: Literal["read", "write"], frame: np.ndarray, qr: n
     :param buffer_size: padding for pushing the quadrants in
     :return:
     """
-    # ensure mode is valid
-    if mode not in ["read", "write"]:
-        raise AttributeError(f"Invalid mode '{mode}'.")
-
     # define max sizes
     max_x = frame.shape[1] - buffer_size
     max_y = frame.shape[0] - buffer_size
@@ -245,9 +259,6 @@ def handle_qr_overlay(mode: Literal["read", "write"], frame: np.ndarray, qr: np.
     :param y: the y offset to place the QR at / read from
     :return: The overlaid QR code or the read QR code
     """
-    if mode not in ["read", "write"]:
-        raise AttributeError(f"Invalid mode '{mode}'.")
-
     if mode == "read":
         # read QR code
         qr = frame[y:qr.shape[0] + y, x:qr.shape[1] + x]

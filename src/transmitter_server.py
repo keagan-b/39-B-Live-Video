@@ -1,37 +1,28 @@
 # Developed By Keagan Bowman
-# Program for transcribing live video data from a Runcam 4 v2 and telemetry from two Blue Raven flight controllers
+# Program for transcribing live video data from a camera and telemetry from two Blue Raven flight controllers
 # into a single video for transmission using RPI GPIO headers to a radio video transmitter
 #
-# main.py
+# transmitter_server.py
 from __future__ import annotations
-
-# TODO:
-# add camera discovery
 
 import cv2
 import json
 import time
+import utils
+import models
 import qrcode
+import os.path
+import datetime
 import db_handler
 import numpy as np
 import overlay_utils
 import telemetry_handler
 
-# flight controller variables
-BLUE_RAVEN_PORTS = ["COM4"]
-SIMULATE = True
-
-# QR code variables
-QR_PIXEL_SCALE = 2
-QR_FRAMES_PER_CONTROLLER = 2
-
-# runcam split v4 has a default aspect ratio of 4:3
-# we can choose the resolution the program targets here
-WIDTH = 2048
-HEIGHT = 1536
-
 
 def main():
+    # load config
+    config = models.Config('./config.json')
+
     # connect to database
     db = db_handler.establish_db(False)
 
@@ -39,9 +30,9 @@ def main():
     db_handler.reset_device_statuses(db)
 
     # begin telemetry streams
-    if not SIMULATE:
+    if not config.SIMULATE:
         # get raven IDs from telemetry search
-        raven_ids = telemetry_handler.start_raven_streams(db, BLUE_RAVEN_PORTS)
+        raven_ids = telemetry_handler.start_raven_streams(db, config.BLUE_RAVEN_PORTS)
     else:
         # create raven simulations
         raven_ids = telemetry_handler.simulate_raven_streams(db, 2,
@@ -51,19 +42,16 @@ def main():
                                                              ])
 
     # establish video feed
-    video_stream = cv2.VideoCapture(1)
+    video_stream = utils.establish_video_feed(config)
 
-    # set width of video capture
-    video_stream.set(cv2.CAP_PROP_FRAME_WIDTH, WIDTH)
-
-    # set height of video capture
-    video_stream.set(cv2.CAP_PROP_FRAME_HEIGHT, HEIGHT)
+    # establish output writer
+    output_writer = utils.create_video_writer(config)
 
     # create empty QR code
     qr = qrcode.main.QRCode(
         version=13,  # force QR code scale
         error_correction=qrcode.constants.ERROR_CORRECT_H,  # best error correction (up to 30%)
-        box_size=QR_PIXEL_SCALE,  # set pixels for each module of QR code
+        box_size=config.QR_PIXEL_SCALE,  # set pixels for each module of QR code
         border=0,  # set QR code border
     )
 
@@ -75,6 +63,15 @@ def main():
     frames_since_controller_swap = 0
 
     current_raven_index = 0
+
+    # set transmission id counter
+    transmission_id = 0
+
+    # create viewport window
+    cv2.namedWindow("outputVideo", cv2.WINDOW_NORMAL)
+
+    # fullscreen window
+    cv2.setWindowProperty("outputVideo", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     # begin video loop
     while True:
@@ -90,6 +87,9 @@ def main():
 
         # append fps count to telemetry
         telemetry.append(frames_in_last_second)
+
+        # add transmission id to telemetry
+        telemetry.append(transmission_id)
 
         # clear QR code data
         qr.clear()
@@ -110,18 +110,23 @@ def main():
         qr_img = cv2.cvtColor(qr_img, cv2.COLOR_GRAY2BGR)
 
         # add qr code
-        frame = overlay_utils.handle_qr_border("write", frame, qr_img, QR_PIXEL_SCALE, 10)
+        frame = overlay_utils.handle_overlay_request(config, "write", frame, qr_img)
 
-        # show overlayed video
-        cv2.imshow("output video", frame)
+        # write frame to video file
+        output_writer.write(frame)
+
+        # show overlaid video
+        cv2.imshow("outputVideo", frame)
         cv2.waitKey(1)
 
         # check if a second has elapsed
         if int(time.time() - last_sample_time) >= 1:
             # set last seconds frames equal to this second
             frames_in_last_second = frames_this_second
+
             # reset frame count
             frames_this_second = 0
+
             # update sample time
             last_sample_time = time.time()
 
@@ -131,8 +136,11 @@ def main():
         # increment frames since the controller index changed
         frames_since_controller_swap += 1
 
+        # increment transmission id
+        transmission_id += 1
+
         # check if the controller index needs to change
-        if frames_since_controller_swap == QR_FRAMES_PER_CONTROLLER:
+        if frames_since_controller_swap == config.QR_FRAMES_PER_CONTROLLER:
             # reset frames since controller swap
             frames_since_controller_swap = 0
 
