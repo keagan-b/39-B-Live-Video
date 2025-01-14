@@ -20,18 +20,32 @@ class Config:
         self.QR_MODE: str = 'border'
         self.QR_PIXEL_SCALE: int = 2
         self.QR_FRAMES_PER_CONTROLLER: int = 2
-        self.QR_BUFFER_SIZE: int = 10
         self.QR_OVERLAY_X: int = 0
         self.QR_OVERLAY_Y: int = 0
 
+        self.QR_BUFFER_SIZE_LEFT: int = 10
+        self.QR_BUFFER_SIZE_TOP: int = 10
+        self.QR_BUFFER_SIZE_RIGHT: int = 10
+        self.QR_BUFFER_SIZE_BOTTOM: int = 10
+
+        self.QR_BORDER_SIZE: int = 1
+
+        # camera options
+        self.USE_PICAM: bool = False
         # Specified target resolution for transmitter output
         self.WIDTH: int = 720
         self.HEIGHT: int = 576
+        self.WINDOW_OFFSET_X: int = 0
+        self.WINDOW_OFFSET_Y: int = 0
+        self.WINDOW_ZOOM_X: float = 1.0
+        self.WINDOW_ZOOM_Y: float = 1.0
 
         # misc
+
         # flight controller variables
         self.BLUE_RAVEN_PORTS = ["COM4"]
         self.SIMULATE = True
+        self.SIMULATION_COUNT: int = 2
 
         # specify local video output codec
         # valid codecs include:
@@ -63,17 +77,30 @@ class Config:
                 self.QR_MODE = config_data['QR_MODE']
                 self.QR_PIXEL_SCALE = config_data['QR_PIXEL_SCALE']
                 self.QR_FRAMES_PER_CONTROLLER = config_data['QR_FRAMES_PER_CONTROLLER']
-                self.QR_BUFFER_SIZE = config_data['QR_BUFFER_SIZE']
                 self.QR_OVERLAY_X = config_data['QR_OVERLAY_X']
                 self.QR_OVERLAY_Y = config_data['QR_OVERLAY_Y']
 
+                self.QR_BUFFER_SIZE_LEFT = config_data['QR_BUFFER_SIZE_LEFT']
+                self.QR_BUFFER_SIZE_TOP = config_data['QR_BUFFER_SIZE_TOP']
+                self.QR_BUFFER_SIZE_RIGHT = config_data['QR_BUFFER_SIZE_RIGHT']
+                self.QR_BUFFER_SIZE_BOTTOM = config_data['QR_BUFFER_SIZE_BOTTOM']
+
+                self.QR_BORDER_SIZE = config_data['QR_BORDER_SIZE']
+
+                # camera settings
+                self.USE_PICAM = config_data['USE_PICAM']
                 self.WIDTH = config_data['WIDTH']
                 self.HEIGHT = config_data['HEIGHT']
+                self.WINDOW_OFFSET_X = config_data['WINDOW_OFFSET_X']
+                self.WINDOW_OFFSET_Y = config_data['WINDOW_OFFSET_Y']
+                self.WINDOW_ZOOM_X = config_data['WINDOW_ZOOM_X']
+                self.WINDOW_ZOOM_Y = config_data['WINDOW_ZOOM_Y']
 
                 self.BLUE_RAVEN_PORTS = config_data['BLUE_RAVEN_PORTS']
                 self.SIMULATE = config_data['SIMULATE']
                 self.OUTPUT_CODEC = config_data['OUTPUT_CODEC']
                 self.OUTPUT_EXTENSION = config_data['OUTPUT_EXTENSION']
+                self.SIMULATION_COUNT = config_data['SIMULATION_COUNT']
             except KeyError:
                 # value not found - save and reload
                 print("Config is broken, adding missing variables...")
@@ -100,7 +127,7 @@ class ConfigEncoder(json.JSONEncoder):
 
 
 class ControllerUIObject:
-    def __init__(self, controller_name: str, root: tkinter.Tk):
+    def __init__(self, controller_name: str, root: tkinter.Frame):
         # create frame
         self.frame = tkinter.Frame(root)
 

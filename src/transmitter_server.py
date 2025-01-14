@@ -8,20 +8,25 @@ from __future__ import annotations
 import cv2
 import json
 import time
+import mouse
 import utils
 import models
 import qrcode
-import os.path
-import datetime
 import db_handler
 import numpy as np
 import overlay_utils
 import telemetry_handler
 
+# load config
+config = models.Config('./config.json')
+
+if config.USE_PICAM:
+    from picamera2 import Picamera2
+
 
 def main():
-    # load config
-    config = models.Config('./config.json')
+    # move mouse to bottom of screen
+    mouse.move(0, config.HEIGHT)
 
     # connect to database
     db = db_handler.establish_db(False)
@@ -35,14 +40,30 @@ def main():
         raven_ids = telemetry_handler.start_raven_streams(db, config.BLUE_RAVEN_PORTS)
     else:
         # create raven simulations
-        raven_ids = telemetry_handler.simulate_raven_streams(db, 2,
+        raven_ids = telemetry_handler.simulate_raven_streams(db, config.SIMULATION_COUNT,
                                                              [
                                                                  './simulations/static-simulation.dat',
                                                                  './simulations/flight-simulation.dat'
                                                              ])
 
     # establish video feed
-    video_stream = utils.establish_video_feed(config)
+    if config.USE_PICAM:
+        # create Picamera2 object
+        camera = Picamera2()
+
+        # configure output to match target resolution
+        cam_config = camera.create_preview_config(
+            main={'size': (config.WIDTH, config.HEIGHT)},
+            lores={'size': (config.WIDTH, config.HEIGHT)}
+        )
+
+        # apply config
+        camera.configure(cam_config)
+
+        # start camera
+        camera.start()
+    else:
+        video_stream = utils.establish_video_feed(config)
 
     # establish output writer
     output_writer = utils.create_video_writer(config)
@@ -52,7 +73,7 @@ def main():
         version=13,  # force QR code scale
         error_correction=qrcode.constants.ERROR_CORRECT_H,  # best error correction (up to 30%)
         box_size=config.QR_PIXEL_SCALE,  # set pixels for each module of QR code
-        border=0,  # set QR code border
+        border=config.QR_BORDER_SIZE,  # set QR code border
     )
 
     # set framerate tracking
@@ -68,15 +89,24 @@ def main():
     transmission_id = 0
 
     # create viewport window
-    cv2.namedWindow("outputVideo", cv2.WINDOW_NORMAL)
+    cv2.namedWindow("outputVideo", cv2.WINDOW_GUI_NORMAL)
 
-    # fullscreen window
-    cv2.setWindowProperty("outputVideo", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    # resize viewport
+    cv2.resizeWindow("outputVideo", config.WIDTH, config.HEIGHT)
+
+    # move viewport to 0, 0
+    cv2.moveWindow("outputVideo", 0, 0)
+
+    # apply viewport placement offset
+    cv2.moveWindow("outputVideo", config.WINDOW_OFFSET_X, config.WINDOW_OFFSET_Y)
 
     # begin video loop
     while True:
         # load in a frame
-        s, frame = video_stream.read()
+        if config.USE_PICAM:
+            frame = camera.capture_array()
+        else:
+            s, frame = video_stream.read()
 
         # skip failed frames
         if frame is None:

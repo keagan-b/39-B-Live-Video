@@ -4,3 +4,4 @@ numpy
 pyserial
 qrcode[pil]
 pyzbar
+mouse

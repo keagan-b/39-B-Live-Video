@@ -1,17 +1,26 @@
 {
-    "QR_MODE": "border",
-    "QR_PIXEL_SCALE": 2,
+    "QR_MODE": "overlay",
+    "QR_PIXEL_SCALE": 4,
     "QR_FRAMES_PER_CONTROLLER": 2,
-    "QR_BUFFER_SIZE": 10,
     "QR_OVERLAY_X": 0,
     "QR_OVERLAY_Y": 0,
+    "QR_BUFFER_SIZE_LEFT": 9,
+    "QR_BUFFER_SIZE_TOP": 12,
+    "QR_BUFFER_SIZE_RIGHT": 11,
+    "QR_BUFFER_SIZE_BOTTOM": 12,
+    "QR_BORDER_SIZE": 1,
+    "USE_PICAM": false,
     "WIDTH": 720,
     "HEIGHT": 576,
+    "WINDOW_OFFSET_X": 0,
+    "WINDOW_OFFSET_Y": 0,
+    "WINDOW_ZOOM_X": 1.0,
+    "WINDOW_ZOOM_Y": 1.0,
     "BLUE_RAVEN_PORTS": [
-        "COM4",
-        "COM5"
+        "COM4"
     ],
     "SIMULATE": true,
+    "SIMULATION_COUNT": 2,
     "OUTPUT_CODEC": "XVID",
     "OUTPUT_EXTENSION": ".avi"
 }
