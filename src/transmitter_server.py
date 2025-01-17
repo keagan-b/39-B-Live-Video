@@ -8,7 +8,6 @@ from __future__ import annotations
 import cv2
 import json
 import time
-import mouse
 import utils
 import models
 import qrcode
@@ -20,13 +19,26 @@ import telemetry_handler
 # load config
 config = models.Config('./config.json')
 
+# attempt to load Picamera library
 if config.USE_PICAM:
     from picamera2 import Picamera2
+
+# attempt to import mouse library
+try:
+    import mouse
+    USING_MOUSE_LIB = True
+except ModuleNotFoundError:
+    import subprocess
+    USING_MOUSE_LIB = False
 
 
 def main():
     # move mouse to bottom of screen
-    mouse.move(0, config.HEIGHT)
+    if USING_MOUSE_LIB:
+        mouse.move(0, config.HEIGHT)
+    else:
+        # fall back to XTE commands
+        subprocess.run(["xte", f"mousemove 0 {config.HEIGHT}"])
 
     # connect to database
     db = db_handler.establish_db(False)
@@ -34,25 +46,13 @@ def main():
     # set all devices to inactive
     db_handler.reset_device_statuses(db)
 
-    # begin telemetry streams
-    if not config.SIMULATE:
-        # get raven IDs from telemetry search
-        raven_ids = telemetry_handler.start_raven_streams(db, config.BLUE_RAVEN_PORTS)
-    else:
-        # create raven simulations
-        raven_ids = telemetry_handler.simulate_raven_streams(db, config.SIMULATION_COUNT,
-                                                             [
-                                                                 './simulations/static-simulation.dat',
-                                                                 './simulations/flight-simulation.dat'
-                                                             ])
-
     # establish video feed
     if config.USE_PICAM:
         # create Picamera2 object
         camera = Picamera2()
 
         # configure output to match target resolution
-        cam_config = camera.create_preview_config(
+        cam_config = camera.create_preview_configuration(
             main={'size': (config.WIDTH, config.HEIGHT)},
             lores={'size': (config.WIDTH, config.HEIGHT)}
         )
@@ -68,13 +68,28 @@ def main():
     # establish output writer
     output_writer = utils.create_video_writer(config)
 
-    # create empty QR code
-    qr = qrcode.main.QRCode(
-        version=13,  # force QR code scale
-        error_correction=qrcode.constants.ERROR_CORRECT_H,  # best error correction (up to 30%)
-        box_size=config.QR_PIXEL_SCALE,  # set pixels for each module of QR code
-        border=config.QR_BORDER_SIZE,  # set QR code border
-    )
+    if config.USE_QR_OVERLAY:
+        qr_output_writer = utils.create_video_writer(config, "qr-")
+
+        # create empty QR code
+        qr = qrcode.main.QRCode(
+            version=13,  # force QR code scale
+            error_correction=qrcode.constants.ERROR_CORRECT_H,  # best error correction (up to 30%)
+            box_size=config.QR_PIXEL_SCALE,  # set pixels for each module of QR code
+            border=config.QR_BORDER_SIZE,  # set QR code border
+        )
+
+        # begin telemetry streams
+        if not config.SIMULATE:
+            # get raven IDs from telemetry search
+            raven_ids = telemetry_handler.start_raven_streams(db, config.BLUE_RAVEN_PORTS)
+        else:
+            # create raven simulations
+            raven_ids = telemetry_handler.simulate_raven_streams(db, config.SIMULATION_COUNT,
+                                                                 [
+                                                                     './simulations/static-simulation.dat',
+                                                                     './simulations/flight-simulation.dat'
+                                                                 ])
 
     # set framerate tracking
     frames_in_last_second = 0
@@ -112,38 +127,45 @@ def main():
         if frame is None:
             continue
 
-        # get telemetry data for this offset
-        telemetry = telemetry_handler.get_telemetry(db, raven_ids[current_raven_index])
-
-        # append fps count to telemetry
-        telemetry.append(frames_in_last_second)
-
-        # add transmission id to telemetry
-        telemetry.append(transmission_id)
-
-        # clear QR code data
-        qr.clear()
-
-        # add data to QR code
-        qr.add_data(json.dumps(telemetry))
-
-        # make qr code
-        qr.make()
-
-        # build QR image
-        qr_img = qr.make_image()
-
-        # get qr code image as numpy array
-        qr_img = np.array(qr_img, dtype=np.uint8) * 255
-
-        # cast color scale
-        qr_img = cv2.cvtColor(qr_img, cv2.COLOR_GRAY2BGR)
-
-        # add qr code
-        frame = overlay_utils.handle_overlay_request(config, "write", frame, qr_img)
-
         # write frame to video file
         output_writer.write(frame)
+
+        if config.USE_QR_OVERLAY:
+            # reshape frame
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2RGB)
+
+            # get telemetry data for this offset
+            telemetry = telemetry_handler.get_telemetry(db, raven_ids[current_raven_index])
+
+            # append fps count to telemetry
+            telemetry.append(frames_in_last_second)
+
+            # add transmission id to telemetry
+            telemetry.append(transmission_id)
+
+            # clear QR code data
+            qr.clear()
+
+            # add data to QR code
+            qr.add_data(json.dumps(telemetry))
+
+            # make qr code
+            qr.make()
+
+            # build QR image
+            qr_img = qr.make_image()
+
+            # get qr code image as numpy array
+            qr_img = np.array(qr_img, dtype=np.uint8) * 255
+
+            # cast color scale
+            qr_img = cv2.cvtColor(qr_img, cv2.COLOR_GRAY2RGB)
+
+            # add qr code
+            frame = overlay_utils.handle_overlay_request(config, "write", frame, qr_img)
+
+            # write overlayed frame to video file
+            qr_output_writer.write(frame)
 
         # show overlaid video
         cv2.imshow("outputVideo", frame)
@@ -178,7 +200,7 @@ def main():
             current_raven_index += 1
 
             # reset index if needed
-            if current_raven_index == len(raven_ids):
+            if config.USE_QR_OVERLAY and current_raven_index == len(raven_ids):
                 current_raven_index = 0
 
 

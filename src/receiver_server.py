@@ -110,7 +110,10 @@ def update_ui(root: tkinter.Frame):
             OUTPUT_WRITER.write(frame)
 
             # apply zoom to frame
-            frame = cv2.resize(frame, None, fx=config.WINDOW_ZOOM_X, fy=config.WINDOW_ZOOM_Y, interpolation=cv2.INTER_LINEAR)
+            try:
+                frame = cv2.resize(frame, None, fx=config.WINDOW_ZOOM_X, fy=config.WINDOW_ZOOM_Y, interpolation=cv2.INTER_LINEAR)
+            except cv2.error:
+                pass
 
             # update UI
             update_image(IMAGE_LABEL, frame)
@@ -421,7 +424,10 @@ def update_calibration_ui(panel: tkinter.Frame):
         # and then reschedule the update
         for i in range(1):
             # apply zoom to frame
-            frame = cv2.resize(frame, None, fx=config.WINDOW_ZOOM_X, fy=config.WINDOW_ZOOM_Y)
+            try:
+                frame = cv2.resize(frame, None, fx=config.WINDOW_ZOOM_X, fy=config.WINDOW_ZOOM_Y)
+            except cv2.error:
+                pass
 
             # clear QR code data
             QR.clear()

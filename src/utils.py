@@ -48,10 +48,11 @@ def establish_video_feed(config: models.Config, priority_list=None) -> cv2.Video
         raise "No valid camera device found."
 
 
-def create_video_writer(config: models.Config) -> cv2.VideoWriter:
+def create_video_writer(config: models.Config, prefix: str = "") -> cv2.VideoWriter:
     """
     Create a video writer using the config resolution
     :param config: Config object to get resolution from
+    :param prefix: video name prefix
     :return: cv2 VideoWriter object
     """
     # check if video-out directory exists
@@ -66,7 +67,7 @@ def create_video_writer(config: models.Config) -> cv2.VideoWriter:
     cc = cv2.VideoWriter_fourcc(*config.OUTPUT_CODEC)
 
     # open video output
-    output_writer = cv2.VideoWriter("./video-out/" + video_name + config.OUTPUT_EXTENSION, cc, 10,
+    output_writer = cv2.VideoWriter("./video-out/" + prefix + video_name + config.OUTPUT_EXTENSION, cc, 10,
                                     (config.WIDTH, config.HEIGHT))
 
     return output_writer

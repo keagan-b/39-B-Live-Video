@@ -17,6 +17,7 @@ class Config:
         # set default values
 
         # QR code variables
+        self.USE_QR_OVERLAY = False
         self.QR_MODE: str = 'border'
         self.QR_PIXEL_SCALE: int = 2
         self.QR_FRAMES_PER_CONTROLLER: int = 2
@@ -74,6 +75,7 @@ class Config:
 
             # set values loaded from config
             try:
+                self.USE_QR_OVERLAY = config_data["USE_QR_OVERLAY"]
                 self.QR_MODE = config_data['QR_MODE']
                 self.QR_PIXEL_SCALE = config_data['QR_PIXEL_SCALE']
                 self.QR_FRAMES_PER_CONTROLLER = config_data['QR_FRAMES_PER_CONTROLLER']
